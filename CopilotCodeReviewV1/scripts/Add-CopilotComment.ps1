@@ -24,6 +24,9 @@
 .PARAMETER EndLine
     Optional. Ending line number for inline comment. Defaults to StartLine if not provided.
 
+.PARAMETER ThreadId
+    Optional. The ID of an existing thread to reply to. If not specified, a new thread is created.
+
 .EXAMPLE
     .\Add-CopilotComment.ps1 -Comment "This looks good!" -Status 'Closed'
     Creates a new general comment thread with closed status.
@@ -68,7 +71,10 @@ param(
     [int]$StartLine,
 
     [Parameter(Mandatory = $false, HelpMessage = "Ending line number for inline comment (defaults to StartLine)")]
-    [int]$EndLine
+    [int]$EndLine,
+
+    [Parameter(Mandatory = $false, HelpMessage = "Existing thread ID to reply to instead of creating a new thread")]
+    [int]$ThreadId
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -86,6 +92,12 @@ $params = @{
     Id           = ${env:PRID}
     Comment      = $Comment
     Status       = $Status
+}
+
+# Add thread ID for replies to existing threads
+if ($ThreadId -gt 0) {
+    $params.ThreadId = $ThreadId
+    Write-Host "Replying to thread #$ThreadId" -ForegroundColor DarkGray
 }
 
 # Add inline comment parameters if file path is provided
