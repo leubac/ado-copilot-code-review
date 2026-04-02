@@ -213,6 +213,22 @@ async function run(): Promise<void> {
         const scriptsDir = path.join(__dirname, 'scripts');
         const workingDirectory = tl.getVariable('System.DefaultWorkingDirectory') || process.cwd();
 
+        // On Windows, refresh PATH from the registry so we can detect CLIs installed
+        // after the agent service started (the agent inherits its PATH at service startup)
+        if (isWindows()) {
+            try {
+                const refreshResult = child_process.spawnSync('pwsh', [
+                    '-NoProfile', '-Command',
+                    `[System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")`
+                ], { encoding: 'utf8', shell: false });
+                if (refreshResult.status === 0 && refreshResult.stdout.trim()) {
+                    process.env['PATH'] = refreshResult.stdout.trim();
+                }
+            } catch {
+                // Non-fatal — continue with existing PATH
+            }
+        }
+
         // Step 1: Install CLI agent if not present
         if (useClaudeCode) {
             console.log('\n[Step 1/5] Checking Claude Code CLI installation...');
