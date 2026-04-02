@@ -222,7 +222,20 @@ async function run(): Promise<void> {
                     `[System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")`
                 ], { encoding: 'utf8', shell: false });
                 if (refreshResult.status === 0 && refreshResult.stdout.trim()) {
-                    process.env['PATH'] = refreshResult.stdout.trim();
+                    // Merge registry PATH with existing process PATH to preserve
+                    // Azure Pipelines job-scoped entries (tool cache, task-prepended paths)
+                    const registryPath = refreshResult.stdout.trim();
+                    const currentPath = process.env['PATH'] || '';
+                    const seen = new Set<string>();
+                    const merged: string[] = [];
+                    for (const entry of registryPath.split(';').concat(currentPath.split(';'))) {
+                        const trimmed = entry.trim();
+                        if (trimmed && !seen.has(trimmed.toLowerCase())) {
+                            seen.add(trimmed.toLowerCase());
+                            merged.push(trimmed);
+                        }
+                    }
+                    process.env['PATH'] = merged.join(';');
                 }
             } catch {
                 // Non-fatal — continue with existing PATH
