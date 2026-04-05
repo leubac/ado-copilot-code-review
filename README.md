@@ -271,7 +271,8 @@ The Build Service identity needs permission to contribute to pull requests:
 2. From the repository dropdown, go to **Manage repositories**
 3. Go to the **Security** tab
 4. Find the **[Project Name] Build Service ([Org Name])** identity
-5. Set **Contribute to pull requests** to **Allow**
+5. Set **Read** to **Allow**
+6. Set **Contribute to pull requests** to **Allow**
 
 ![Update Build Service identity permissions](https://github.com/user-attachments/assets/a0e1c6e4-1c76-40c5-b191-e65ad47dd81c)
 
@@ -287,6 +288,7 @@ Create a personal access token:
 4. Create a new token with the following scopes:
    - **Code**: Read
    - **Pull Request Threads**: Read & Write
+   - **Work Item**: Read _(Optional)_
 5. Store the token as a secret variable in your Azure DevOps pipeline
 
 > **NOTE**: When using a PAT, PR comments will be attributed to the account that created the PAT. For large teams, consider using a dedicated service account.
