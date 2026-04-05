@@ -1,6 +1,6 @@
 {
     "name": "copilot-code-review-task",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "description": "Azure DevOps extension for automated code reviews using agentic AI tools",
     "main": "index.js",
     "scripts": {
@@ -21,8 +21,7 @@
     "author": "LittleFortSoftware",
     "license": "MIT",
     "dependencies": {
-        "azure-pipelines-task-lib": "^4.17.3",
-        "production": "^0.0.2"
+        "azure-pipelines-task-lib": "^5.2.8"
     },
     "devDependencies": {
         "@types/node": "^20.19.27",

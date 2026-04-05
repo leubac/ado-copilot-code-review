@@ -10,7 +10,7 @@
     "version": {
         "Major": 1,
         "Minor": 5,
-        "Patch": 2
+        "Patch": 3
     },
     "instanceNameFormat": "Copilot Code Review",
     "minimumAgentVersion": "2.182.1",
@@ -189,6 +189,9 @@
     ],
     "execution": {
         "Node20_1": {
+            "target": "index.js"
+        },
+        "Node16": {
             "target": "index.js"
         }
     },
