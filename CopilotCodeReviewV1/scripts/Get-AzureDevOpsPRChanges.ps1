@@ -81,7 +81,7 @@ function Write-Output-Line {
         [string]$ForegroundColor = "White",
         [switch]$NoNewline
     )
-    
+
     if ($script:OutputToFile) {
         if ($NoNewline) {
             $script:OutputBuilder.Append($Message) | Out-Null
@@ -90,12 +90,15 @@ function Write-Output-Line {
             $script:OutputBuilder.AppendLine($Message) | Out-Null
         }
     }
-    
+
+    # Sanitize for Azure Pipelines: prevent ##vso[ and ##[ from being interpreted as logging commands
+    $sanitized = $Message -replace '(?m)^##', ' ##'
+
     if ($NoNewline) {
-        Write-Host $Message -ForegroundColor $ForegroundColor -NoNewline
+        Write-Host $sanitized -ForegroundColor $ForegroundColor -NoNewline
     }
     else {
-        Write-Host $Message -ForegroundColor $ForegroundColor
+        Write-Host $sanitized -ForegroundColor $ForegroundColor
     }
 }
 

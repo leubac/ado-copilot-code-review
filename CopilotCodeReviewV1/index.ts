@@ -696,9 +696,10 @@ async function runCopilotCli(promptFilePath: string, model: string | undefined, 
             copilotCmd += ` --model ${model}`;
         }
         
-        const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host $prompt; Write-Host ========== END PROMPT ==========;`;
+        const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
         const envRefresh = `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User");`
-        const psCommand = `${envRefresh} $prompt = Get-Content -Path '${promptFilePath}' -Raw; ${printPrompt} ${copilotCmd}`;
+        const sanitizedCopilotCmd = `${copilotCmd} | ForEach-Object { Write-Host ($_ -replace '^##', ' ##') }; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`;
+        const psCommand = `${envRefresh} $prompt = Get-Content -Path '${promptFilePath}' -Raw; ${printPrompt} ${sanitizedCopilotCmd}`;
         console.log(`Running Powershell: ${psCommand}`);
         
         const envVars = { ...process.env };
@@ -830,7 +831,7 @@ async function runClaudeCodeCli(
             `    if ($ev.type -ne 'stream_event') { return }`,
             `    $se = $ev.event;`,
             `    if ($se.type -eq 'content_block_delta' -and $se.delta.type -eq 'text_delta') {`,
-            `      Write-Host $se.delta.text`,
+            `      Write-Host ($se.delta.text -replace '(?m)^##', ' ##')`,
             `    }`,
             `    elseif ($se.type -eq 'content_block_start' -and $se.content_block.type -eq 'tool_use') {`,
             `      $idx = [string]$se.index;`,
@@ -847,7 +848,7 @@ async function runClaudeCodeCli(
             `      $raw = $script:toolInputs[$idx];`,
             `      try { $inp = ($raw | ConvertFrom-Json -ErrorAction Stop); $display = ($inp | ConvertTo-Json -Compress) } catch { $display = $raw };`,
             `      Write-Host '';`,
-            `      Write-Host "    [$name] $display";`,
+            `      Write-Host ("    [$name] $display" -replace '(?m)^##', ' ##');`,
             `      $script:toolNames.Remove($idx);`,
             `      $script:toolInputs.Remove($idx)`,
             `    }`,
@@ -857,7 +858,7 @@ async function runClaudeCodeCli(
             `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`
         ].join(' ');
 
-        const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host $prompt; Write-Host ========== END PROMPT ==========;`;
+        const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
         const envRefresh = isWindows()
             ? `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User");`
             : '';
