@@ -566,6 +566,7 @@ if ($Id -gt 0) {
 
                 @{
                     threadId  = $thread.id
+                    commentId = $firstComment.id
                     status    = $thread.status
                     filePath  = $filePath
                     startLine = $startLine

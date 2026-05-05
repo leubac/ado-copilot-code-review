@@ -59,5 +59,6 @@ pwsh -File ./Add-CopilotComment.ps1 -Comment $comment -Status 'Closed'
 - Prefer inline comments (`-FilePath` and `-StartLine`) when the feedback relates to specific code locations.
 - The file path should use forward slashes and start with a leading slash (e.g., '/src/App.cs').
 - When including multi-line code blocks in the comment markdown, ALWAYS make sure the code block is preceded and followed by lines with triple backticks (i.e. '```')
+- NEVER use bare `#<number>` syntax to reference other threads or comments. In Azure DevOps, `#` is interpreted as a work item link. If you need to reference another thread, use the markdown anchor link format: `[Thread description](#<commentId>)` where `<commentId>` is the `commentId` field from the thread JSON data.
 
 Lastly, be aware that you are operating in an Azure Pipelines context and permissions restrictions over network or file access may occur. If you encounter conditions blocking you from performing the outlined steps, you do not need to persist indefinitely—you may simply print any suggestions to the console log and end the run. Thank you for your help!
