@@ -337,6 +337,18 @@ if ($script:OutputToFile) {
         $iterationIdFile = Join-Path $outputDir "Iteration_Id.txt"
         $iterationId.ToString() | Out-File -FilePath $iterationIdFile -Encoding UTF8 -NoNewline
         Write-Host "Iteration ID written to: $iterationIdFile" -ForegroundColor Green
+
+        # Write full commit SHAs for use by diffOnlyReview mode
+        if ($latestIteration.sourceRefCommit) {
+            $sourceCommitFile = Join-Path $outputDir "Source_Commit.txt"
+            $latestIteration.sourceRefCommit.commitId | Out-File -FilePath $sourceCommitFile -Encoding UTF8 -NoNewline
+            Write-Host "Source commit SHA written to: $sourceCommitFile" -ForegroundColor Green
+        }
+        if ($latestIteration.targetRefCommit) {
+            $targetCommitFile = Join-Path $outputDir "Target_Commit.txt"
+            $latestIteration.targetRefCommit.commitId | Out-File -FilePath $targetCommitFile -Encoding UTF8 -NoNewline
+            Write-Host "Target commit SHA written to: $targetCommitFile" -ForegroundColor Green
+        }
     }
     catch {
         Write-Error "Failed to write output file: $_"

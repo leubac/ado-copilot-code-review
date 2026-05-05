@@ -197,6 +197,7 @@ steps:
 | `promptRaw` | No | - | _(Advanced)_ Inline custom prompt that will be passed as-is with no supportive direction. |
 | `authors` | No | - | Comma-separated list of email addresses to filter reviews (see below) |
 | `includeWorkItems` | No | `true` | Fetch and include linked work item details as review context |
+| `diffOnlyReview` | No | `false` | Restrict the review to only the PR diff (see [Diff-Only Review Mode](#diff-only-review-mode)) |
 
 ### Copilot Models
 
@@ -256,6 +257,34 @@ When configured:
 - If the PR author's email matches any in the list, the review proceeds normally
 - If no match is found, the task completes successfully without running the code review
 - Email comparison is case-insensitive
+
+### Diff-Only Review Mode
+
+By default, the CLI agent has full access to the repository and can explore files beyond the PR diff. This equips the agent with more contextual awareness, leading to more relevant feedback. However, for large codebases this can result in excessive token consumption as the agent reads unrelated files for context.
+
+Enable `diffOnlyReview` to restrict the review to **only** the code changes in the PR:
+
+```yaml
+- task: CopilotCodeReview@1
+  displayName: 'Copilot Code Review'
+  inputs:
+    githubPat: '$(GITHUB_PAT)'
+    useSystemAccessToken: true
+    diffOnlyReview: true
+```
+
+When enabled:
+- The PR diff is pre-computed via `git diff` and embedded directly in the prompt along with all PR context (details, iteration info, work items)
+- CLI tool access is restricted to only posting review comments — the agent cannot browse or read repository files
+- Token usage becomes proportional to the size of the actual code changes, not the size of the repository
+
+**Requirements:**
+- The pipeline must use `fetchDepth: 0` (full clone) so that both source and target commits are available for diff computation
+- Has no effect when using raw prompt modes (`promptRaw` or `promptFileRaw`)
+
+**Trade-off:** The agent loses the ability to check broader codebase patterns and conventions. This is the intended trade-off for users prioritizing token efficiency over deep contextual review.
+
+If the diff cannot be computed (e.g., missing commits due to a shallow clone), the task will fail with a descriptive error rather than silently consuming excessive tokens.
 
 ## Setting Up Authentication
 

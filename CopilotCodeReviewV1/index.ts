@@ -171,6 +171,7 @@ async function run(): Promise<void> {
         const promptRaw = tl.getInput('promptRaw');
         const promptFileRaw = tl.getInput('promptFileRaw');
         const includeWorkItems = tl.getBoolInput('includeWorkItems', false);
+        const diffOnlyReview = tl.getBoolInput('diffOnlyReview', false);
 
         // If PR ID not provided, try to get from pipeline variable
         if (!pullRequestId) {
@@ -302,6 +303,70 @@ async function run(): Promise<void> {
             if (iterationId) {
                 process.env['ITERATION_ID'] = iterationId;
                 console.log(`Iteration ID set to: ${iterationId}`);
+            }
+        }
+
+        // Diff-only mode: pre-compute the git diff from commit SHAs
+        let diffContent: string | null = null;
+
+        if (diffOnlyReview) {
+            console.log('\n[Diff-Only Mode] Computing PR diff from commit SHAs...');
+            const sourceCommitFile = path.join(workingDirectory, 'Source_Commit.txt');
+            const targetCommitFile = path.join(workingDirectory, 'Target_Commit.txt');
+
+            if (!fs.existsSync(sourceCommitFile) || !fs.existsSync(targetCommitFile)) {
+                tl.setResult(tl.TaskResult.Failed,
+                    'Diff-only mode failed: Commit SHA files (Source_Commit.txt / Target_Commit.txt) not found. ' +
+                    'This may indicate the Azure DevOps API did not return commit references for the PR iteration.');
+                return;
+            }
+
+            const sourceCommit = fs.readFileSync(sourceCommitFile, 'utf8').trim();
+            const targetCommit = fs.readFileSync(targetCommitFile, 'utf8').trim();
+
+            if (!sourceCommit || !targetCommit) {
+                tl.setResult(tl.TaskResult.Failed,
+                    'Diff-only mode failed: Commit SHA files are empty. ' +
+                    'Source_Commit.txt and Target_Commit.txt must contain valid commit hashes.');
+                return;
+            }
+
+            console.log(`  Source commit: ${sourceCommit}`);
+            console.log(`  Target commit: ${targetCommit}`);
+
+            try {
+                const diffResult = child_process.spawnSync(
+                    'git',
+                    ['diff', `${targetCommit}..${sourceCommit}`],
+                    {
+                        encoding: 'utf8',
+                        cwd: workingDirectory,
+                        maxBuffer: 50 * 1024 * 1024
+                    }
+                );
+
+                if (diffResult.status === 0 && diffResult.stdout.trim()) {
+                    diffContent = diffResult.stdout;
+                    console.log(`  Diff computed successfully (${diffContent.length} characters).`);
+                } else if (diffResult.status === 0 && !diffResult.stdout.trim()) {
+                    tl.setResult(tl.TaskResult.Failed,
+                        'Diff-only mode failed: git diff returned empty output. ' +
+                        'The PR may have no code changes between the source and target commits.');
+                    return;
+                } else {
+                    const stderr = diffResult.stderr ? diffResult.stderr.trim() : '';
+                    tl.setResult(tl.TaskResult.Failed,
+                        `Diff-only mode failed: git diff exited with code ${diffResult.status}. ` +
+                        'This typically means the commit SHAs are not available in the local checkout. ' +
+                        'Ensure your pipeline uses "fetchDepth: 0" for a full clone. ' +
+                        (stderr ? `git stderr: ${stderr}` : ''));
+                    return;
+                }
+            } catch (err) {
+                tl.setResult(tl.TaskResult.Failed,
+                    `Diff-only mode failed: git diff threw an error: ${err instanceof Error ? err.message : String(err)}. ` +
+                    'Ensure git is available and the working directory is a valid repository.');
+                return;
             }
         }
 
@@ -440,6 +505,59 @@ async function run(): Promise<void> {
             }
         }
 
+        // Diff-only mode: inject all context into the prompt and flag for tool restriction
+        let diffOnlyActive = false;
+
+        if (diffOnlyReview && diffContent && promptFilePath && !promptRaw && !isPromptFileRawSet) {
+            let currentPrompt = fs.readFileSync(promptFilePath, 'utf8');
+
+            // Replace the default prompt's instruction to use git/repo access
+            const originalGuidelines = 'Using this information along with git commands and the local copy of the repository, please conduct a code review of this pull request and identify any suggested modifications that should be made.';
+            const replacedGuidelines = 'Using the PR details and code diff provided at the end of this prompt, please conduct a code review of this pull request and identify any suggested modifications that should be made.';
+            if (currentPrompt.includes(originalGuidelines)) {
+                currentPrompt = currentPrompt.replace(originalGuidelines, replacedGuidelines);
+            }
+
+            // Replace the Overview paragraph's file-reading instructions
+            const originalOverview = 'The details of a pull request for the repo in the working directory have been saved to the PR_Details.txt file—please review this file for broad context on the pull request. Additionally, details on the specific commits and files associated with the pull request\'s most recent iteration have been saved to the Iteration_Details.txt file—these will serve as the focus for the current code review. If a Work_Item_Details.txt file exists in the working directory, it contains the full details of work items linked to this pull request, including their type, title, description, acceptance criteria, and repro steps. Use this information to better understand the intent and requirements behind the code changes being reviewed. If network conditions permit, you may pull more information directly from the Azure DevOps API using the PAT configured in the AZUREDEVOPSPAT environment variable if it would be useful.';
+            const replacedOverview = 'The PR details, iteration information, and code diff are all provided inline at the end of this prompt. Use this information to understand the context and review the code changes. Do NOT attempt to read files from disk or run git commands to explore the repository—all relevant context is embedded below.';
+            if (currentPrompt.includes(originalOverview)) {
+                currentPrompt = currentPrompt.replace(originalOverview, replacedOverview);
+            }
+
+            // Build the inline context sections
+            let contextSections = '\n\n# PR Details\n\n';
+            if (fs.existsSync(prDetailsOutput)) {
+                contextSections += fs.readFileSync(prDetailsOutput, 'utf8');
+            }
+
+            contextSections += '\n\n# Iteration Details\n\n';
+            if (fs.existsSync(iterationDetailsOutput)) {
+                contextSections += fs.readFileSync(iterationDetailsOutput, 'utf8');
+            }
+
+            const workItemDetailsFile = path.join(workingDirectory, 'Work_Item_Details.txt');
+            if (fs.existsSync(workItemDetailsFile)) {
+                contextSections += '\n\n# Work Item Details\n\n';
+                contextSections += fs.readFileSync(workItemDetailsFile, 'utf8');
+            }
+
+            contextSections += '\n\n# Code Changes (git diff)\n\nThe following unified diff shows all code changes in this pull request:\n\n```diff\n' + diffContent + '\n```\n';
+
+            // Append all context to the prompt
+            currentPrompt += contextSections;
+
+            // Write the assembled prompt
+            const diffPromptPath = path.join(workingDirectory, '_diff_prompt.txt');
+            fs.writeFileSync(diffPromptPath, currentPrompt, 'utf8');
+            promptFilePath = diffPromptPath;
+            diffOnlyActive = true;
+
+            console.log('[Diff-Only Mode] All context embedded in prompt. Tool access will be restricted.');
+        } else if (diffOnlyReview && (promptRaw || isPromptFileRawSet)) {
+            console.log('[Diff-Only Mode] Raw prompt mode detected. diffOnlyReview has no effect in raw prompt mode.');
+        }
+
         // Copy the Add-AzureDevOpsPRComment.ps1 and Add-AzureDevOpsPRComment.ps1 script to the working directory
         // so Copilot can find and use them for posting PR comments
         const addCommentScriptSource = path.join(scriptsDir, 'Add-AzureDevOpsPRComment.ps1');
@@ -462,9 +580,9 @@ async function run(): Promise<void> {
         // Run CLI agent with timeout
         const timeoutMs = timeoutMinutes * 60 * 1000;
         if (useClaudeCode) {
-            await runClaudeCodeCli(promptFilePath, model, workingDirectory, timeoutMs, maxTurns, maxBudget);
+            await runClaudeCodeCli(promptFilePath, model, workingDirectory, timeoutMs, maxTurns, maxBudget, diffOnlyActive);
         } else {
-            await runCopilotCli(promptFilePath, model, workingDirectory, timeoutMs);
+            await runCopilotCli(promptFilePath, model, workingDirectory, timeoutMs, diffOnlyActive);
         }
 
         console.log('\n' + '='.repeat(60));
@@ -564,11 +682,16 @@ async function runPowerShellScript(scriptPath: string, args: string[]): Promise<
     });
 }
 
-async function runCopilotCli(promptFilePath: string, model: string | undefined, workingDirectory: string, timeoutMs: number): Promise<void> {
+async function runCopilotCli(promptFilePath: string, model: string | undefined, workingDirectory: string, timeoutMs: number, diffOnlyActive: boolean): Promise<void> {
     return new Promise((resolve, reject) => {
         // Build PowerShell command that reads prompt file and passes content to copilot CLI
         // This mirrors the original implementation: $prompt = Get-Content -Path "prompt.txt" -Raw; copilot -p $prompt ...
-        let copilotCmd = `copilot -p "$prompt" --allow-all-paths --allow-all-tools --deny-tool 'shell(git push)'`;
+        let copilotCmd: string;
+        if (diffOnlyActive) {
+            copilotCmd = `copilot -p "$prompt" --allow-tool 'shell(pwsh)' --deny-tool 'shell(git push)'`;
+        } else {
+            copilotCmd = `copilot -p "$prompt" --allow-all-paths --allow-all-tools --deny-tool 'shell(git push)'`;
+        }
         if (model) {
             copilotCmd += ` --model ${model}`;
         }
@@ -670,14 +793,19 @@ async function runClaudeCodeCli(
     workingDirectory: string,
     timeoutMs: number,
     maxTurns: string | undefined,
-    maxBudget: string | undefined
+    maxBudget: string | undefined,
+    diffOnlyActive: boolean
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         // Build Claude Code CLI command for headless CI/CD operation
         // Use stream-json output with PowerShell parsing for real-time log streaming
         let claudeCmd = `claude -p "$prompt" --dangerously-skip-permissions`;
         claudeCmd += ` --output-format stream-json --verbose --include-partial-messages`;
-        claudeCmd += ` --allowedTools "Bash" "Read" "Write" "Edit" "Glob" "Grep"`;
+        if (diffOnlyActive) {
+            claudeCmd += ` --allowedTools "Bash(pwsh *)"`;
+        } else {
+            claudeCmd += ` --allowedTools "Bash" "Read" "Write" "Edit" "Glob" "Grep"`;
+        }
         claudeCmd += ` --disallowedTools "Bash(git push *)"`;
 
         if (model) {

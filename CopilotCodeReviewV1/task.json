@@ -10,7 +10,7 @@
     "version": {
         "Major": 1,
         "Minor": 5,
-        "Patch": 3
+        "Patch": 4
     },
     "instanceNameFormat": "Copilot Code Review",
     "minimumAgentVersion": "2.182.1",
@@ -185,6 +185,14 @@
             "required": false,
             "defaultValue": true,
             "helpMarkDown": "When enabled, fetches full details (title, description, acceptance criteria, repro steps) for work items linked to the pull request and includes them as context for the Copilot review. Disable to reduce API calls and context window usage."
+        },
+        {
+            "name": "diffOnlyReview",
+            "type": "boolean",
+            "label": "Diff-Only Review",
+            "required": false,
+            "defaultValue": false,
+            "helpMarkDown": "When enabled, the review is restricted to ONLY the PR diff. The diff is pre-computed and embedded in the prompt, and CLI tool access is limited to posting comments only. This dramatically reduces token usage for large repositories. Has no effect when using raw prompt modes (promptRaw, promptFileRaw)."
         }
     ],
     "execution": {
