@@ -685,20 +685,24 @@ async function runPowerShellScript(scriptPath: string, args: string[]): Promise<
 async function runCopilotCli(promptFilePath: string, model: string | undefined, workingDirectory: string, timeoutMs: number, diffOnlyActive: boolean): Promise<void> {
     return new Promise((resolve, reject) => {
         // Build PowerShell command that reads prompt file and passes content to copilot CLI
-        // This mirrors the original implementation: $prompt = Get-Content -Path "prompt.txt" -Raw; copilot -p $prompt ...
-        let copilotCmd: string;
+        let copilotFlags: string;
         if (diffOnlyActive) {
-            copilotCmd = `copilot -p "$prompt" --allow-tool 'shell(pwsh)' --deny-tool 'shell(git push)'`;
+            copilotFlags = `--allow-tool 'shell(pwsh)' --deny-tool 'shell(git push)'`;
         } else {
-            copilotCmd = `copilot -p "$prompt" --allow-all-paths --allow-all-tools --deny-tool 'shell(git push)'`;
+            copilotFlags = `--allow-all-paths --allow-all-tools --deny-tool 'shell(git push)'`;
         }
         if (model) {
-            copilotCmd += ` --model ${model}`;
+            copilotFlags += ` --model ${model}`;
         }
-        
+
         const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
         const envRefresh = `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User");`
-        const sanitizedCopilotCmd = `${copilotCmd} | ForEach-Object { Write-Host ($_ -replace '^##', ' ##') }; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`;
+        // Pipe the prompt via stdin to avoid Windows command-line length limits when the
+        // prompt contains an embedded diff. The -p flag puts copilot in non-interactive mode.
+        const copilotInvocation = diffOnlyActive
+            ? `$prompt | copilot -p - ${copilotFlags}`
+            : `copilot -p "$prompt" ${copilotFlags}`;
+        const sanitizedCopilotCmd = `$ErrorActionPreference = 'Stop'; try { ${copilotInvocation} | ForEach-Object { Write-Host ($_ -replace '^##', ' ##') }; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } catch { Write-Host "Error running Copilot CLI: $_"; exit 1 }`;
         const psCommand = `${envRefresh} $prompt = Get-Content -Path '${promptFilePath}' -Raw; ${printPrompt} ${sanitizedCopilotCmd}`;
         console.log(`Running Powershell: ${psCommand}`);
         
@@ -798,34 +802,42 @@ async function runClaudeCodeCli(
     diffOnlyActive: boolean
 ): Promise<void> {
     return new Promise((resolve, reject) => {
-        // Build Claude Code CLI command for headless CI/CD operation
-        // Use stream-json output with PowerShell parsing for real-time log streaming
-        let claudeCmd = `claude -p "$prompt" --dangerously-skip-permissions`;
-        claudeCmd += ` --output-format stream-json --verbose --include-partial-messages`;
+        // Build Claude Code CLI flags
+        let claudeFlags = `--dangerously-skip-permissions`;
+        claudeFlags += ` --output-format stream-json --verbose --include-partial-messages`;
         if (diffOnlyActive) {
-            claudeCmd += ` --allowedTools "Bash(pwsh *)"`;
+            claudeFlags += ` --allowedTools "Bash(pwsh *)"`;
         } else {
-            claudeCmd += ` --allowedTools "Bash" "Read" "Write" "Edit" "Glob" "Grep"`;
+            claudeFlags += ` --allowedTools "Bash" "Read" "Write" "Edit" "Glob" "Grep"`;
         }
-        claudeCmd += ` --disallowedTools "Bash(git push *)"`;
+        claudeFlags += ` --disallowedTools "Bash(git push *)"`;
 
         if (model) {
-            claudeCmd += ` --model ${model}`;
+            claudeFlags += ` --model ${model}`;
         }
         if (maxTurns) {
-            claudeCmd += ` --max-turns ${maxTurns}`;
+            claudeFlags += ` --max-turns ${maxTurns}`;
         }
         if (maxBudget) {
-            claudeCmd += ` --max-budget-usd ${maxBudget}`;
+            claudeFlags += ` --max-budget-usd ${maxBudget}`;
         }
+
+        // When diffOnlyActive, pipe the prompt via stdin to avoid Windows command-line
+        // length limits. Claude Code reads from stdin when content is piped to `claude -p`.
+        const claudeInvocation = diffOnlyActive
+            ? `$prompt | claude -p ${claudeFlags}`
+            : `claude -p "$prompt" ${claudeFlags}`;
 
         // PowerShell pipeline: stream JSON from Claude Code, extract text deltas and tool calls in real time.
         // Tool use events arrive as: content_block_start (tool name) → input_json_delta fragments → content_block_stop.
         // We accumulate input fragments with $script:-scoped state and print the tool name + input on block stop.
+        // $ErrorActionPreference = 'Stop' ensures process startup failures are catchable.
         const streamParser = [
+            `$ErrorActionPreference = 'Stop';`,
             `$script:toolNames = @{};`,
             `$script:toolInputs = @{};`,
-            `${claudeCmd} | ForEach-Object {`,
+            `try {`,
+            `${claudeInvocation} | ForEach-Object {`,
             `  try {`,
             `    $ev = ($_ | ConvertFrom-Json -ErrorAction Stop);`,
             `    if ($ev.type -ne 'stream_event') { return }`,
@@ -855,7 +867,8 @@ async function runClaudeCodeCli(
             `  } catch { Write-Host $_ }`,
             `};`,
             `Write-Host '';`,
-            `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`
+            `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`,
+            `} catch { Write-Host "Error running Claude Code CLI: $_"; exit 1 }`
         ].join(' ');
 
         const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
