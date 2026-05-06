@@ -751,7 +751,11 @@ async function runCopilotCli(promptFilePath: string, model: string | undefined, 
             copilotFlags += ` --model ${model}`;
         }
 
-        const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
+        // In diff-only mode the prompt contains the embedded diff and is too noisy to print.
+        // Users can inspect the full prompt via publishPromptArtifacts.
+        const printPrompt = diffOnlyActive
+            ? `Write-Host '[Diff-only mode] Prompt suppressed; enable publishPromptArtifacts to inspect the full prompt.';`
+            : `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
         const envRefresh = `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User");`
         // Pipe the prompt via stdin to avoid Windows command-line length limits when the
         // prompt contains an embedded diff. The -p flag puts copilot in non-interactive mode.
@@ -927,7 +931,11 @@ async function runClaudeCodeCli(
             `} catch { Write-Host "Error running Claude Code CLI: $_"; exit 1 }`
         ].join(' ');
 
-        const printPrompt = `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
+        // In diff-only mode the prompt contains the embedded diff and is too noisy to print.
+        // Users can inspect the full prompt via publishPromptArtifacts.
+        const printPrompt = diffOnlyActive
+            ? `Write-Host '[Diff-only mode] Prompt suppressed; enable publishPromptArtifacts to inspect the full prompt.';`
+            : `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
         const envRefresh = isWindows()
             ? `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User");`
             : '';
