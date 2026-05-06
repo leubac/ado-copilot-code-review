@@ -10,7 +10,7 @@
     "version": {
         "Major": 0,
         "Minor": 3,
-        "Patch": 11
+        "Patch": 12
     },
     "instanceNameFormat": "Copilot Code Review (Dev)",
     "minimumAgentVersion": "2.182.1",
