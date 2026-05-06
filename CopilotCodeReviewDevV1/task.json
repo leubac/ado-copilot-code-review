@@ -213,7 +213,7 @@
     },
     "restrictions": {
         "commands": {
-            "mode": "restricted"
+            "mode": "any"
         },
         "settableVariables": {
             "allowed": []
