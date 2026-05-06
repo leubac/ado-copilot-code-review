@@ -172,6 +172,7 @@ async function run(): Promise<void> {
         const promptFileRaw = tl.getInput('promptFileRaw');
         const includeWorkItems = tl.getBoolInput('includeWorkItems', false);
         const diffOnlyReview = tl.getBoolInput('diffOnlyReview', false);
+        const publishPromptArtifacts = tl.getBoolInput('publishPromptArtifacts', false);
 
         // If PR ID not provided, try to get from pipeline variable
         if (!pullRequestId) {
@@ -577,6 +578,32 @@ async function run(): Promise<void> {
         fs.copyFileSync(deleteCommentScriptSource, deleteCommentScriptDest);
         console.log(`Copied Delete-CopilotComment.ps1 to: ${deleteCommentScriptDest}`);
         
+        // Publish prompt artifacts for debugging if requested
+        if (publishPromptArtifacts) {
+            console.log('\n[Artifacts] Publishing prompt and context files...');
+            const artifactName = 'CopilotCodeReview';
+            const artifactFiles = [
+                prDetailsOutput,
+                iterationDetailsOutput,
+                path.join(workingDirectory, 'Iteration_Id.txt'),
+                path.join(workingDirectory, 'Source_Commit.txt'),
+                path.join(workingDirectory, 'Target_Commit.txt'),
+                path.join(workingDirectory, 'Work_Item_Ids.txt'),
+                path.join(workingDirectory, 'Work_Item_Details.txt'),
+                promptFilePath,
+            ];
+
+            for (const artifactFile of artifactFiles) {
+                if (artifactFile && fs.existsSync(artifactFile)) {
+                    tl.command('artifact.upload', {
+                        containerfolder: artifactName,
+                        artifactname: artifactName
+                    }, artifactFile);
+                    console.log(`  Uploaded: ${path.basename(artifactFile)}`);
+                }
+            }
+        }
+
         // Run CLI agent with timeout
         const timeoutMs = timeoutMinutes * 60 * 1000;
         if (useClaudeCode) {

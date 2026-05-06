@@ -193,6 +193,14 @@
             "required": false,
             "defaultValue": false,
             "helpMarkDown": "When enabled, the review is restricted to ONLY the PR diff. The diff is pre-computed and embedded in the prompt, and CLI tool access is limited to posting comments only. This dramatically reduces token usage for large repositories. Has no effect when using raw prompt modes (promptRaw, promptFileRaw)."
+        },
+        {
+            "name": "publishPromptArtifacts",
+            "type": "boolean",
+            "label": "Publish Prompt Artifacts",
+            "required": false,
+            "defaultValue": false,
+            "helpMarkDown": "When enabled, publishes all context files (PR details, iteration details, work items, commit SHAs) and the final assembled prompt as pipeline artifacts. Useful for debugging prompt construction and reviewing what context the CLI agent received."
         }
     ],
     "execution": {

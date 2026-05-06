@@ -198,6 +198,7 @@ steps:
 | `authors` | No | - | Comma-separated list of email addresses to filter reviews (see below) |
 | `includeWorkItems` | No | `true` | Fetch and include linked work item details as review context |
 | `diffOnlyReview` | No | `false` | Restrict the review to only the PR diff (see [Diff-Only Review Mode](#diff-only-review-mode)) |
+| `publishPromptArtifacts` | No | `false` | Publish context files and the final prompt as pipeline artifacts for debugging |
 
 ### Copilot Models
 
@@ -285,6 +286,21 @@ When enabled:
 **Trade-off:** The agent loses the ability to check broader codebase patterns and conventions. This is the intended trade-off for users prioritizing token efficiency over deep contextual review.
 
 If the diff cannot be computed (e.g., missing commits due to a shallow clone), the task will fail with a descriptive error rather than silently consuming excessive tokens.
+
+### Publishing Prompt Artifacts
+
+Enable `publishPromptArtifacts` to publish all generated context files and the final assembled prompt as pipeline artifacts. This is useful for debugging prompt construction, verifying what context the CLI agent received, or inspecting the diff content in diff-only mode.
+
+```yaml
+- task: CopilotCodeReview@1
+  displayName: 'Copilot Code Review'
+  inputs:
+    githubPat: '$(GITHUB_PAT)'
+    useSystemAccessToken: true
+    publishPromptArtifacts: true
+```
+
+The published artifact (`CopilotCodeReview`) will contain files such as `PR_Details.txt`, `Iteration_Details.txt`, commit SHA files, work item details (if enabled), and the final prompt file sent to the CLI agent.
 
 ## Setting Up Authentication
 
