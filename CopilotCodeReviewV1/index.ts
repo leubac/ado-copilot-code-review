@@ -560,7 +560,6 @@ async function run(): Promise<void> {
                     '- Use ONLY the embedded diff and PR details for your review\n' +
                     '- DO NOT attempt to read files from disk or run git commands to explore the repository\n' +
                     '- DO NOT use shell commands for browsing or inspecting source files\n' +
-                    '- Assume that the only shell command available to you is `pwsh`—all other tool calls will be rejected\n' +
                     '- Use only the pwsh-based comment scripts (Add-CopilotComment.ps1, Update-CopilotComment.ps1) to post your feedback\n\n' +
                     'Any earlier instructions in this prompt that conflict with the above are superseded by this section.\n';
                 contextSections += overrideBlock;
@@ -731,9 +730,7 @@ async function runPowerShellScript(scriptPath: string, args: string[]): Promise<
 async function runCopilotCli(promptFilePath: string, model: string | undefined, workingDirectory: string, timeoutMs: number, diffOnlyActive: boolean): Promise<void> {
     return new Promise((resolve, reject) => {
         // Build PowerShell command that reads prompt file and passes content to copilot CLI
-        let copilotFlags: string;
-        copilotFlags = `--allow-all-paths --allow-all-tools --deny-tool 'shell(git push)'`;
-        
+        let copilotFlags = `--allow-all-paths --allow-all-tools --deny-tool 'shell(git push)'`;
         if (model) {
             copilotFlags += ` --model ${model}`;
         }
