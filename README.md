@@ -278,11 +278,11 @@ When enabled:
 - The prompt explicitly directs the agent to use only the embedded diff and to refrain from reading files or running git commands to explore the repository
 - Token usage becomes proportional to the size of the actual code changes, not the size of the repository
 
-**Note on tool restrictions:** The agent retains shell access to `pwsh` because it needs to invoke the comment-posting scripts (`Add-CopilotComment.ps1`, `Update-CopilotComment.ps1`). Because `pwsh` is a general-purpose shell, this technically permits arbitrary command execution; the diff-only behavior is enforced by the combination of removed file-browsing tools, embedded context, and explicit prompt instructions rather than by hard tool-level constraints alone.
+**Limitations:** The agent retains shell access to `pwsh` because it needs to invoke the comment-posting scripts (`Add-CopilotComment.ps1`, `Update-CopilotComment.ps1`). Because `pwsh` is a general-purpose shell, this technically permits arbitrary command execution; the diff-only behavior is enforced by the combination of removed file-browsing tools, embedded context, and explicit prompt instructions rather than by hard tool-level constraints alone.
 
 **Requirements:**
 - The pipeline must use `fetchDepth: 0` (full clone) so that both source and target commits are available for diff computation
-- Has no effect when using raw prompt modes (`promptRaw` or `promptFileRaw`) — diff computation is skipped entirely in those modes
+- When using raw prompt modes (`promptRaw` or `promptFileRaw`), prompts should be constructed assuming that all diff context will be appended to the end
 
 **Trade-off:** The agent loses the ability to check broader codebase patterns and conventions. This is the intended trade-off for users prioritizing token efficiency over deep contextual review.
 

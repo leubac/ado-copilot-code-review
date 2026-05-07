@@ -183,6 +183,11 @@ async function run(): Promise<void> {
         const diffOnlyReview = tl.getBoolInput('diffOnlyReview', false);
         const publishPromptArtifacts = tl.getBoolInput('publishPromptArtifacts', false);
 
+        // filePath inputs return the working directory path when not set, so check both
+        // the input value and that the path actually points to a real file.
+        const isPromptFileSet = !!(promptFile && fs.existsSync(promptFile) && fs.statSync(promptFile).isFile());
+        const isPromptFileRawSet = !!(promptFileRaw && fs.existsSync(promptFileRaw) && fs.statSync(promptFileRaw).isFile());
+
         // If PR ID not provided, try to get from pipeline variable
         if (!pullRequestId) {
             pullRequestId = tl.getVariable('System.PullRequest.PullRequestId');
@@ -319,9 +324,7 @@ async function run(): Promise<void> {
         // Diff-only mode: pre-compute the git diff from commit SHAs
         let diffContent: string | null = null;
 
-        if (diffOnlyReview && (promptRaw || promptFileRaw)) {
-            console.log('\n[Diff-Only Mode] Skipped: diffOnlyReview has no effect when using raw prompt modes (promptRaw / promptFileRaw).');
-        } else if (diffOnlyReview) {
+        if (diffOnlyReview) {
             console.log('\n[Diff-Only Mode] Computing PR diff from commit SHAs...');
             const sourceCommitFile = path.join(workingDirectory, 'Source_Commit.txt');
             const targetCommitFile = path.join(workingDirectory, 'Target_Commit.txt');
@@ -428,14 +431,6 @@ async function run(): Promise<void> {
         let promptFilePath: string = '';
         let customPromptText: string | null = null;
 
-        // Helper to check if filePath inputs are actually set (filePath inputs return working dir when empty)
-        const isPromptFileSet = promptFile &&
-            fs.existsSync(promptFile) &&
-            fs.statSync(promptFile).isFile();
-        const isPromptFileRawSet = promptFileRaw &&
-            fs.existsSync(promptFileRaw) &&
-            fs.statSync(promptFileRaw).isFile();
-
         // Validate that only one prompt input is provided
         const activePromptInputs: string[] = [];
         if (prompt) activePromptInputs.push('prompt');
@@ -520,32 +515,33 @@ async function run(): Promise<void> {
             }
         }
 
-        // Diff-only mode: inject all context into the prompt and flag for tool restriction
+        // Diff-only mode: inject context + diff into the prompt and flag for tool restriction
         let diffOnlyActive = false;
 
-        if (diffOnlyReview && diffContent && promptFilePath && !promptRaw && !isPromptFileRawSet) {
+        if (diffOnlyReview && diffContent && promptFilePath) {
             let currentPrompt = fs.readFileSync(promptFilePath, 'utf8');
+            const isRawPrompt = !!(promptRaw || isPromptFileRawSet);
 
-            // Replace the default prompt's instruction to use git/repo access (best-effort).
-            // The Guidelines section only exists in prompt.txt, so absence is normal for custom prompts.
-            const originalGuidelines = 'Using this information along with git commands and the local copy of the repository, please conduct a code review of this pull request and identify any suggested modifications that should be made.';
-            const replacedGuidelines = 'Using the PR details and code diff provided at the end of this prompt, please conduct a code review of this pull request and identify any suggested modifications that should be made.';
-            if (currentPrompt.includes(originalGuidelines)) {
-                currentPrompt = currentPrompt.replace(originalGuidelines, replacedGuidelines);
+            // For non-raw prompts (default/custom templates), attempt to rewrite instructions
+            // that tell the agent to use git/file access. These are best-effort — the override
+            // block appended at the end guarantees correct behavior regardless.
+            if (!isRawPrompt) {
+                const originalGuidelines = 'Using this information along with git commands and the local copy of the repository, please conduct a code review of this pull request and identify any suggested modifications that should be made.';
+                const replacedGuidelines = 'Using the PR details and code diff provided at the end of this prompt, please conduct a code review of this pull request and identify any suggested modifications that should be made.';
+                if (currentPrompt.includes(originalGuidelines)) {
+                    currentPrompt = currentPrompt.replace(originalGuidelines, replacedGuidelines);
+                }
+
+                const originalOverview = 'The details of a pull request for the repo in the working directory have been saved to the PR_Details.txt file—please review this file for broad context on the pull request. Additionally, details on the specific commits and files associated with the pull request\'s most recent iteration have been saved to the Iteration_Details.txt file—these will serve as the focus for the current code review. If a Work_Item_Details.txt file exists in the working directory, it contains the full details of work items linked to this pull request, including their type, title, description, acceptance criteria, and repro steps. Use this information to better understand the intent and requirements behind the code changes being reviewed. If network conditions permit, you may pull more information directly from the Azure DevOps API using the PAT configured in the AZUREDEVOPSPAT environment variable if it would be useful.';
+                const replacedOverview = 'The PR details, iteration information, and code diff are all provided inline at the end of this prompt. Use this information to understand the context and review the code changes. Do NOT attempt to read files from disk or run git commands to explore the repository—all relevant context is embedded below.';
+                if (currentPrompt.includes(originalOverview)) {
+                    currentPrompt = currentPrompt.replace(originalOverview, replacedOverview);
+                } else {
+                    tl.warning('Diff-only mode: expected Overview paragraph not found in the prompt template. The prompt template may have been edited; update the originalOverview string in index.ts to match.');
+                }
             }
 
-            // Replace the Overview paragraph's file-reading instructions (best-effort).
-            // The Overview paragraph exists in BOTH prompt.txt and prompt-custom.txt — if it's
-            // not found, the templates have likely been edited and index.ts needs updating.
-            const originalOverview = 'The details of a pull request for the repo in the working directory have been saved to the PR_Details.txt file—please review this file for broad context on the pull request. Additionally, details on the specific commits and files associated with the pull request\'s most recent iteration have been saved to the Iteration_Details.txt file—these will serve as the focus for the current code review. If a Work_Item_Details.txt file exists in the working directory, it contains the full details of work items linked to this pull request, including their type, title, description, acceptance criteria, and repro steps. Use this information to better understand the intent and requirements behind the code changes being reviewed. If network conditions permit, you may pull more information directly from the Azure DevOps API using the PAT configured in the AZUREDEVOPSPAT environment variable if it would be useful.';
-            const replacedOverview = 'The PR details, iteration information, and code diff are all provided inline at the end of this prompt. Use this information to understand the context and review the code changes. Do NOT attempt to read files from disk or run git commands to explore the repository—all relevant context is embedded below.';
-            if (currentPrompt.includes(originalOverview)) {
-                currentPrompt = currentPrompt.replace(originalOverview, replacedOverview);
-            } else {
-                tl.warning('Diff-only mode: expected Overview paragraph not found in the prompt template. The prompt template may have been edited; update the originalOverview string in index.ts to match. The diff-only override block at the end of the prompt will still enforce correct behavior.');
-            }
-
-            // Build the inline context sections
+            // Build the inline context sections (appended for all prompt types)
             let contextSections = '\n\n# PR Details\n\n';
             if (fs.existsSync(prDetailsOutput)) {
                 contextSections += fs.readFileSync(prDetailsOutput, 'utf8');
@@ -564,18 +560,21 @@ async function run(): Promise<void> {
 
             contextSections += '\n\n# Code Changes (git diff)\n\nThe following unified diff shows all code changes in this pull request:\n\n```diff\n' + diffContent + '\n```\n';
 
-            // Strong override block — guarantees correct diff-only behavior even if the inline
-            // template replacements above silently no-op due to template edits.
-            const overrideBlock = '\n\n# IMPORTANT: Diff-Only Review Mode\n\n' +
-                'This is a diff-only review. All necessary context (PR details, iteration information, work items, and the full code diff) is provided in the sections above. You MUST:\n\n' +
-                '- Use ONLY the embedded diff and PR details for your review\n' +
-                '- DO NOT attempt to read files from disk or run git commands to explore the repository\n' +
-                '- DO NOT use shell commands for browsing or inspecting source files\n' +
-                '- Use only the pwsh-based comment scripts (Add-CopilotComment.ps1, Update-CopilotComment.ps1) to post your feedback\n\n' +
-                'Any earlier instructions in this prompt that conflict with the above are superseded by this section.\n';
+            // For non-raw prompts, append a strong override directive.
+            // Raw prompt users provide their own diff-only instructions.
+            if (!isRawPrompt) {
+                const overrideBlock = '\n\n# IMPORTANT: Diff-Only Review Mode\n\n' +
+                    'This is a diff-only review. All necessary context (PR details, iteration information, work items, and the full code diff) is provided in the sections above. You MUST:\n\n' +
+                    '- Use ONLY the embedded diff and PR details for your review\n' +
+                    '- DO NOT attempt to read files from disk or run git commands to explore the repository\n' +
+                    '- DO NOT use shell commands for browsing or inspecting source files\n' +
+                    '- Use only the pwsh-based comment scripts (Add-CopilotComment.ps1, Update-CopilotComment.ps1) to post your feedback\n\n' +
+                    'Any earlier instructions in this prompt that conflict with the above are superseded by this section.\n';
+                contextSections += overrideBlock;
+            }
 
             // Append all context to the prompt
-            currentPrompt += contextSections + overrideBlock;
+            currentPrompt += contextSections;
 
             // Write the assembled prompt
             const diffPromptPath = path.join(workingDirectory, '_diff_prompt.txt');
@@ -584,8 +583,6 @@ async function run(): Promise<void> {
             diffOnlyActive = true;
 
             console.log('[Diff-Only Mode] All context embedded in prompt. Tool access will be restricted.');
-        } else if (diffOnlyReview && (promptRaw || isPromptFileRawSet)) {
-            console.log('[Diff-Only Mode] Raw prompt mode detected. diffOnlyReview has no effect in raw prompt mode.');
         }
 
         // Copy the Add-AzureDevOpsPRComment.ps1 and Add-AzureDevOpsPRComment.ps1 script to the working directory
