@@ -733,7 +733,7 @@ async function runCopilotCli(promptFilePath: string, model: string | undefined, 
         // Build PowerShell command that reads prompt file and passes content to copilot CLI
         let copilotFlags: string;
         if (diffOnlyActive) {
-            copilotFlags = `--available-tools 'bash, create' --allow-tool 'shell(pwsh:*)' --deny-tool 'shell(git push)'`;
+            copilotFlags = `--available-tools 'bash, create' --allow-tool 'shell(cat:*), shell(pwsh:*)' --deny-tool 'shell(git push)'`;
         } else {
             copilotFlags = `--allow-all-paths --allow-all-tools --deny-tool 'shell(git push)'`;
         }
