@@ -465,10 +465,6 @@ async function run(): Promise<void> {
         } else if (prompt) {
             // Direct prompt input: merge with template
             console.log('Using custom prompt from input.');
-            if (prompt.includes('"')) {
-                tl.setResult(tl.TaskResult.Failed, 'Custom prompts cannot include double quotes ("). Please remove any double quotes from your prompt input.');
-                return;
-            }
             customPromptText = prompt;
         } else if (isPromptFileSet) {
             // Read from prompt file: merge with template
@@ -476,10 +472,6 @@ async function run(): Promise<void> {
             const fileContent = fs.readFileSync(promptFile!, 'utf8').trim();
             if (!fileContent) {
                 tl.setResult(tl.TaskResult.Failed, `Prompt file is empty: ${promptFile}`);
-                return;
-            }
-            if (fileContent.includes('"')) {
-                tl.setResult(tl.TaskResult.Failed, `Custom prompts cannot include double quotes ("). Please remove any double quotes from the prompt file: ${promptFile}`);
                 return;
             }
             customPromptText = fileContent;
@@ -755,11 +747,9 @@ async function runCopilotCli(promptFilePath: string, model: string | undefined, 
             ? `Write-Host '[Diff-only mode] Prompt suppressed; enable publishPromptArtifacts to inspect the full prompt.';`
             : `Write-Host ========== START PROMPT ==========; Write-Host ($prompt -replace '(?m)^##', ' ##'); Write-Host ========== END PROMPT ==========;`;
         const envRefresh = `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User");`
-        // Pipe the prompt via stdin to avoid Windows command-line length limits when the
-        // prompt contains an embedded diff. The -p flag puts copilot in non-interactive mode.
-        const copilotInvocation = diffOnlyActive
-            ? `$prompt | copilot -p - ${copilotFlags}`
-            : `copilot -p "$prompt" ${copilotFlags}`;
+        // Pipe the prompt via stdin — avoids Windows command-line length limits and
+        // eliminates double-quote escaping issues in prompt content.
+        const copilotInvocation = `$prompt | copilot ${copilotFlags}`;
         const sanitizedCopilotCmd = `$ErrorActionPreference = 'Stop'; try { ${copilotInvocation} | ForEach-Object { Write-Host ($_ -replace '(?m)^##', ' ##') }; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } catch { Write-Host "Error running Copilot CLI: $_"; exit 1 }`;
         const psCommand = `${envRefresh} $prompt = Get-Content -Path '${promptFilePath}' -Raw; ${printPrompt} ${sanitizedCopilotCmd}`;
         console.log(`Running Powershell: ${psCommand}`);

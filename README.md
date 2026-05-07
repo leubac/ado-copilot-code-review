@@ -143,8 +143,6 @@ For longer custom prompts, create a .txt file in your repository and pass the fi
     promptFile: '$(Build.SourcesDirectory)/.copilot/review-prompt.txt'
 ```
 
-> **IMPORTANT:** If using a custom prompt, avoid including any double quotation marks (") as this will cause errors when passing the input to the Copilot CLI. Single quotes (') can be used instead and should not cause any issues.
-
 ### Manual Trigger for Specific PR
 
 If you don't want to setup an automatic trigger, you can instead set up a pipeline with a **Pull Request ID** parameter to run reviews on demand:
