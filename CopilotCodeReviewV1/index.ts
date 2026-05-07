@@ -568,6 +568,7 @@ async function run(): Promise<void> {
                     '- Use ONLY the embedded diff and PR details for your review\n' +
                     '- DO NOT attempt to read files from disk or run git commands to explore the repository\n' +
                     '- DO NOT use shell commands for browsing or inspecting source files\n' +
+                    '- Assume that the only shell command available to you is `pwsh`—all other tool calls will be rejected\n' +
                     '- Use only the pwsh-based comment scripts (Add-CopilotComment.ps1, Update-CopilotComment.ps1) to post your feedback\n\n' +
                     'Any earlier instructions in this prompt that conflict with the above are superseded by this section.\n';
                 contextSections += overrideBlock;
@@ -863,7 +864,7 @@ async function runClaudeCodeCli(
         let claudeFlags = `--dangerously-skip-permissions`;
         claudeFlags += ` --output-format stream-json --verbose --include-partial-messages`;
         if (diffOnlyActive) {
-            claudeFlags += ` --allowedTools "Bash(pwsh *)"`;
+            claudeFlags += ` --allowedTools "Bash(pwsh *)" "Write"`;
         } else {
             claudeFlags += ` --allowedTools "Bash" "Read" "Write" "Edit" "Glob" "Grep"`;
         }
