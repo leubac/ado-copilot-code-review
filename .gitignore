@@ -36,4 +36,4 @@ CopilotCodeReviewDevV1/*
 !CopilotCodeReviewDevV1/task.json
 tmpclaude*
 CLAUDE.md
-.claude/settings.local.json
+.claude/*
