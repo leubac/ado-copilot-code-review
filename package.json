@@ -1,6 +1,6 @@
 {
-    "name": "ado-copilot-code-review",
-    "version": "1.5.4",
+    "name": "panipro-code-review",
+    "version": "2.0.0",
     "description": "Azure DevOps extension for automated code reviews using agentic AI tools",
     "scripts": {
         "build": "cd CopilotCodeReviewV1 && npm run build",
@@ -10,7 +10,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/little-fort/ado-copilot-code-review.git"
+        "url": "https://github.com/leubac/ado-copilot-code-review"
     },
     "keywords": [
         "azure-devops",
@@ -19,6 +19,6 @@
         "pull-request",
         "ai"
     ],
-    "author": "LittleFortSoftware",
+    "author": "PaniproSA",
     "license": "GPL-3.0"
 }

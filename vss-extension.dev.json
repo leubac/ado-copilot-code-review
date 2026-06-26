@@ -1,10 +1,10 @@
 {
     "$schema": "http://json.schemastore.org/vss-extension",
     "manifestVersion": 1,
-    "id": "ado-copilot-code-review-dev",
-    "name": "Copilot Code Review (Dev)",
+    "id": "panipro-code-review-dev",
+    "name": "Panipro Code Review (Dev)",
     "version": "0.3.22",
-    "publisher": "LittleFortSoftware",
+    "publisher": "PaniproSA",
     "public": false,
     "targets": [
         {
@@ -34,18 +34,18 @@
     },
     "links": {
         "repository": {
-            "uri": "https://github.com/little-fort/ado-copilot-code-review"
+            "uri": "https://github.com/leubac/ado-copilot-code-review"
         },
         "issues": {
-            "uri": "https://github.com/little-fort/ado-copilot-code-review/issues"
+            "uri": "https://github.com/leubac/ado-copilot-code-review/issues"
         },
         "support": {
-            "uri": "https://github.com/little-fort/ado-copilot-code-review/issues"
+            "uri": "https://github.com/leubac/ado-copilot-code-review/issues"
         }
     },
     "repository": {
         "type": "git",
-        "uri": "https://github.com/little-fort/ado-copilot-code-review"
+        "uri": "https://github.com/leubac/ado-copilot-code-review"
     },
     "branding": {
         "color": "rgb(0, 122, 204)",

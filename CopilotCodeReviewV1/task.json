@@ -1,18 +1,18 @@
 {
     "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
-    "id": "5fe45e88-c466-4658-ad2f-f6735e8a601f",
-    "name": "CopilotCodeReview",
-    "friendlyName": "Copilot Code Review",
+    "id": "6efe7365-fb99-4c29-9088-8a174cb7865d",
+    "name": "PaniproCodeReview",
+    "friendlyName": "Panipro Code Review",
     "description": "Perform automated code reviews on pull requests using the GitHub Copilot CLI or Claude Code",
-    "helpMarkDown": "[Learn more about this task](https://github.com/little-fort/ado-copilot-code-review)",
+    "helpMarkDown": "[Learn more about this task](https://github.com/leubac/ado-copilot-code-review)",
     "category": "Utility",
-    "author": "LittleFortSoftware",
+    "author": "PaniproSA",
     "version": {
-        "Major": 1,
-        "Minor": 5,
-        "Patch": 4
+        "Major": 2,
+        "Minor": 0,
+        "Patch": 0
     },
-    "instanceNameFormat": "Copilot Code Review",
+    "instanceNameFormat": "Panipro Code Review",
     "minimumAgentVersion": "2.182.1",
     "inputs": [
         {

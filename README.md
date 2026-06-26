@@ -83,7 +83,7 @@ steps:
 
 #### Using Claude Code CLI
 
-To use Claude Code instead of GitHub Copilot, enable `useClaudeCode` and provide an Anthropic API key:
+To use Claude Code instead of GitHub Copilot, enable `useClaudeCode`. Anthropic API key is optional:
 
 ```yaml
 trigger: none
@@ -177,7 +177,7 @@ steps:
 |-------|----------|---------|-------------|
 | `githubPat` | Conditional | - | GitHub Personal Access Token with Copilot access. Required when using GitHub Copilot CLI (default). |
 | `useClaudeCode` | No | `false` | Use Claude Code CLI (Anthropic) instead of GitHub Copilot CLI |
-| `anthropicApiKey` | Conditional | - | Anthropic API key. Required when `useClaudeCode` is `true`. |
+| `anthropicApiKey` | No | - | Anthropic API key. |
 | `maxTurns` | No | - | Maximum agentic turns for Claude Code CLI |
 | `maxBudget` | No | - | Maximum cost in USD for a Claude Code session |
 | `useSystemAccessToken` | No | `false` | Use pipeline's System.AccessToken instead of a PAT (recommended for Azure DevOps Services) |
