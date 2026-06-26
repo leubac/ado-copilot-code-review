@@ -84,13 +84,7 @@ async function run(): Promise<void> {
         const maxBudget = tl.getInput('maxBudget');
 
         // Validate agent-specific auth
-        if (useClaudeCode) {
-            if (!anthropicApiKey) {
-                tl.setResult(tl.TaskResult.Failed,
-                    'Anthropic API Key is required when using Claude Code CLI. Please provide the anthropicApiKey input.');
-                return;
-            }
-        } else {
+        if (!useClaudeCode) {
             if (!githubPat) {
                 tl.setResult(tl.TaskResult.Failed,
                     'GitHub PAT is required when using GitHub Copilot CLI. Please provide the githubPat input.');
@@ -215,7 +209,7 @@ async function run(): Promise<void> {
 
         // Set environment variables for PowerShell scripts
         if (useClaudeCode) {
-            process.env['ANTHROPIC_API_KEY'] = anthropicApiKey!;
+            process.env['ANTHROPIC_API_KEY'] = anthropicApiKey;
         } else {
             process.env['GH_TOKEN'] = githubPat!;
         }
