@@ -209,7 +209,9 @@ async function run(): Promise<void> {
 
         // Set environment variables for PowerShell scripts
         if (useClaudeCode) {
-            process.env['ANTHROPIC_API_KEY'] = anthropicApiKey;
+			if(anthropicApiKey) {
+				process.env['ANTHROPIC_API_KEY'] = anthropicApiKey!;
+			}
         } else {
             process.env['GH_TOKEN'] = githubPat!;
         }
